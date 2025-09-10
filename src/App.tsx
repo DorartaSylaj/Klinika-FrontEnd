@@ -2,9 +2,9 @@ import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import LoginPage from "./components/LoginPage";
-import Dashboard from "./components/Dashboard"; // doktori (placeholder për tani)
-import AdminPanel from "./pages/admin/admin/AdminPanel";
 import DashboardPage from "./pages/admin/nurse/DashboardPage"; // infermierja
+import DoctorDashboardPage from "./pages/admin/Doctor/DashboardPage"; // doktori
+import AdminPanel from "./pages/admin/admin/AdminPanel";
 
 import type { User } from "./types/User";
 
@@ -52,7 +52,7 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <Dashboard user={user} onLogout={handleLogout} />
+            <DoctorDashboardPage user={user} onLogout={handleLogout} />
           </motion.div>
         )}
       </AnimatePresence>
