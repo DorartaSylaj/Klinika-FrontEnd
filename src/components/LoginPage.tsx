@@ -9,8 +9,20 @@ export default function LoginPage({ onLogin }: { onLogin: (u: User) => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !password.trim() || !role) return;
-    onLogin({ id: Date.now().toString(), name, role: role as Role });
+
+    if (!name.trim() || !password.trim() || !role) {
+      alert("Ju lutem plotësoni të gjitha fushat!");
+      return;
+    }
+
+    // krijo user objekt
+    const newUser: User = {
+      id: Date.now().toString(),
+      name,
+      role: role as Role,
+    };
+
+    onLogin(newUser);
   };
 
   return (
@@ -27,7 +39,6 @@ export default function LoginPage({ onLogin }: { onLogin: (u: User) => void }) {
 
         {/* Logo + Title */}
         <div className="flex items-center justify-center gap-3 mb-6 relative z-10">
-          {/* Tooth SVG */}
           <svg
             viewBox="0 0 24 24"
             aria-hidden="true"
