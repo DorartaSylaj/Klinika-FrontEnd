@@ -22,7 +22,6 @@ type DoctorDashboardProps = {
   onLogout: () => void;
 };
 
-// Mock data për terminët (në backend do të ngarkohet real)
 const mockAppointments: Appointment[] = [
   { id: 1, name: "Ardit Krasniqi", date: "2025-09-04", type: "Kontrollë", status: "pending" },
   { id: 2, name: "Elira Gashi", date: "2025-09-04", type: "Urgjente", status: "pending" },
@@ -31,19 +30,25 @@ const mockAppointments: Appointment[] = [
 
 export default function DoctorDashboardPage({ user, onLogout }: DoctorDashboardProps) {
   const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [view, setView] = useState<"dashboard" | "patients" | "report">("dashboard");
   const [showWelcome, setShowWelcome] = useState(true);
+  const [hideCompleted, setHideCompleted] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowWelcome(false), 2000);
     return () => clearTimeout(timer);
   }, []);
 
-  const handleStatus = (id: number, status: "done" | "missed") => {
+  const handleMissed = (id: number) => {
     setAppointments(prev =>
-      prev.map(a => (a.id === id ? { ...a, status } : a))
+      prev.map(a => (a.id === id ? { ...a, status: "missed" } : a))
     );
   };
+
+  const filteredAppointments = hideCompleted
+    ? appointments.filter(a => a.status !== "done")
+    : appointments;
 
   if (showWelcome) {
     return (
@@ -67,8 +72,22 @@ export default function DoctorDashboardPage({ user, onLogout }: DoctorDashboardP
     return <PatientsPage onBackToDashboard={() => setView("dashboard")} />;
   }
 
-  if (view === "report") {
-    return <ReportPage onBack={() => setView("dashboard")} />;
+  if (view === "report" && selectedAppointment) {
+    return (
+      <ReportPage
+        appointment={selectedAppointment}
+        onSave={() => {
+          // heqim terminin nga dashboard pasi u ruajt raporti
+          setAppointments(prev => prev.filter(a => a.id !== selectedAppointment.id));
+          setSelectedAppointment(null);
+          setView("dashboard");
+        }}
+        onBack={() => {
+          setSelectedAppointment(null);
+          setView("dashboard");
+        }}
+      />
+    );
   }
 
   return (
@@ -104,28 +123,32 @@ export default function DoctorDashboardPage({ user, onLogout }: DoctorDashboardP
         {/* Appointments */}
         <section className="bg-white shadow-lg rounded-3xl p-6 border border-gray-100 w-full">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            Terminet për 7 ditët e ardhshme
+            Terminet për 5 ditët e ardhshme
           </h2>
           <ul className="space-y-4">
-            {appointments.map(a => (
+            {filteredAppointments.map(a => (
               <li
                 key={a.id}
-                className={`p-4 rounded-xl text-base shadow-sm transition flex justify-between items-center ${
-                  a.type === "Urgjente" ? "bg-red-50 border border-red-300 hover:bg-red-100" : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
-                }`}
+                className={`p-4 rounded-xl text-base shadow-sm transition flex justify-between items-center ${a.type === "Urgjente"
+                  ? "bg-red-50 border border-red-300 hover:bg-red-100"
+                  : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
+                  }`}
               >
                 <div>
                   <span className="font-semibold text-gray-900">{a.name}</span> – {a.date} ({a.type})
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => handleStatus(a.id, "done")}
-                    className={`px-2 py-1 rounded ${a.status === "done" ? "bg-green-500 text-white" : "bg-gray-200"}`}
+                    onClick={() => {
+                      setSelectedAppointment(a);
+                      setView("report"); // ky është ndryshimi kryesor
+                    }}
+                    className="px-2 py-1 rounded bg-green-500 text-white"
                   >
-                    ✔
+                    Shto Raport
                   </button>
                   <button
-                    onClick={() => handleStatus(a.id, "missed")}
+                    onClick={() => handleMissed(a.id)}
                     className={`px-2 py-1 rounded ${a.status === "missed" ? "bg-red-500 text-white" : "bg-gray-200"}`}
                   >
                     ✖
@@ -133,7 +156,22 @@ export default function DoctorDashboardPage({ user, onLogout }: DoctorDashboardP
                 </div>
               </li>
             ))}
+            {filteredAppointments.length === 0 && (
+              <li className="text-center text-gray-500 py-4">
+                Nuk ka termine për të shfaqur.
+              </li>
+            )}
           </ul>
+
+          {/* Butoni për shfaq/fshih termine të përfunduara */}
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={() => setHideCompleted(prev => !prev)}
+              className="px-6 py-2 rounded-xl bg-indigo-600 text-white font-medium shadow hover:bg-indigo-700 transition"
+            >
+              {hideCompleted ? "Shfaq të gjitha terminet" : "Terminet e përfunduara"}
+            </button>
+          </div>
         </section>
       </main>
     </div>

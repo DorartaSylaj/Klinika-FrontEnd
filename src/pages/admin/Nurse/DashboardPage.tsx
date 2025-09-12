@@ -159,16 +159,15 @@ export default function DashboardPage({ onLogout, user }: NurseDashboardProps) {
 
         {/* Appointments */}
         <section className="bg-white shadow-lg rounded-3xl p-6 border border-gray-100 w-full mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Terminet për 7 ditët e ardhshme</h2>
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Terminet për 5 ditët e ardhshme</h2>
           <ul className="space-y-4">
             {appointments.map((appt) => (
               <li
                 key={appt.id}
-                className={`p-4 rounded-xl text-base shadow-sm transition flex justify-between items-center ${
-                  appt.type === "Urgjente"
+                className={`p-4 rounded-xl text-base shadow-sm transition flex justify-between items-center ${appt.type === "Urgjente"
                     ? "bg-red-50 border border-red-300 hover:bg-red-100"
                     : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
-                }`}
+                  }`}
               >
                 <div>
                   <span className="font-semibold text-gray-900">{appt.name}</span>
@@ -179,17 +178,15 @@ export default function DashboardPage({ onLogout, user }: NurseDashboardProps) {
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleTick(appt.id)}
-                    className={`px-2 py-1 rounded shadow text-white transition ${
-                      appt.status === "done" ? "bg-green-600" : "bg-gray-300 hover:bg-green-500"
-                    }`}
+                    className={`px-2 py-1 rounded shadow text-white transition ${appt.status === "done" ? "bg-green-600" : "bg-gray-300 hover:bg-green-500"
+                      }`}
                   >
                     ✓
                   </button>
                   <button
                     onClick={() => handleX(appt.id)}
-                    className={`px-2 py-1 rounded shadow text-white transition ${
-                      appt.status === "missed" ? "bg-red-600" : "bg-gray-300 hover:bg-red-500"
-                    }`}
+                    className={`px-2 py-1 rounded shadow text-white transition ${appt.status === "missed" ? "bg-red-600" : "bg-gray-300 hover:bg-red-500"
+                      }`}
                   >
                     X
                   </button>
@@ -207,9 +204,8 @@ export default function DashboardPage({ onLogout, user }: NurseDashboardProps) {
               {completedAppointments.map((appt) => (
                 <li
                   key={appt.id}
-                  className={`p-4 rounded-xl text-base shadow-sm transition flex justify-between items-center ${
-                    appt.status === "done" ? "bg-green-50 border border-green-300" : "bg-red-50 border border-red-300"
-                  }`}
+                  className={`p-4 rounded-xl text-base shadow-sm transition flex justify-between items-center ${appt.status === "done" ? "bg-green-50 border border-green-300" : "bg-red-50 border border-red-300"
+                    }`}
                 >
                   <div>
                     <span className="font-semibold text-gray-900">{appt.name}</span>
