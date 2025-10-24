@@ -166,7 +166,7 @@ const StaffManagement = () => {
             )}
           </div>
           <p className="text-gray-500 text-sm mt-2">
-            Email gjenerohet në mënyrë automatike <span className="font-medium">emri@mail.com</span>
+            Email gjenerohët në mënyrë automatike <span className="font-medium">emri@mail.com</span>
           </p>
         </div>
 
