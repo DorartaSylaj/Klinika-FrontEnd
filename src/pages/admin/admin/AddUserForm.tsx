@@ -1,9 +1,16 @@
-import React, { useState } from "react";
+import { useState } from "react";
+
+type UserData = {
+  name: string;
+  email: string;
+  role: string;
+  password: string;
+};
 
 export default function AddUserForm({
   onAddUser,
 }: {
-  onAddUser: (user: { id: string; name: string; email: string; role: string; password: string }) => void;
+  onAddUser: (user: UserData) => void;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -14,13 +21,7 @@ export default function AddUserForm({
     e.preventDefault();
     if (!name.trim() || !email.trim() || !password.trim()) return;
 
-    onAddUser({
-      id: Date.now().toString(),
-      name,
-      email,
-      role,
-      password,
-    });
+    onAddUser({ name, email, role, password });
 
     setName("");
     setEmail("");

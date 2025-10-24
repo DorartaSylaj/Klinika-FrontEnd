@@ -6,5 +6,5 @@ export type User = {
   surname: string;
   email: string;
   role: Role;
-  password?: string; // opsional për ndryshim nga admini
+  password?: string;
 };

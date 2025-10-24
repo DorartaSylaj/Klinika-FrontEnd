@@ -1,24 +1,32 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import type { User } from "../../../types/User";
 import PatientsPage from "./PatientsPage";
 import AddPatientPage from "./AddPatientPage";
-import AddAppointmentPage from "./AddAppointment"; // Import i ri
-import type { User } from "../../../types/User";
+import AddAppointment from "./AddAppointment";
+import PatientDetail from "./PatientDetail";
 
-type Appointment = {
+export type Patient = {
   id: number;
-  name: string;
-  date: string;
-  type: "Kontrollë" | "Urgjente" | "Operim";
-  status?: "done" | "missed";
+  first_name: string;
+  last_name: string;
+  birth_date: string;
+  symptoms?: string;
+  recovery_days?: number;
+  visit_date?: string;
+  prescription?: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
-type Patient = {
+export type Appointment = {
   id: number;
-  name: string;
-  birthdate: string;
-  symptoms: string;
-  recoveryDays?: number;
+  patient_name: string;
+  appointment_date: string;
+  type: "Kontrollë" | "Kontrollë Urgjente" | "Operim";
+  status: "pending" | "done" | "cancelled";
+  notes?: string;
+  nurse_id?: number;
 };
 
 type NurseDashboardProps = {
@@ -26,53 +34,77 @@ type NurseDashboardProps = {
   user: User;
 };
 
-const mockAppointments: Appointment[] = [
-  { id: 1, name: "Ardit Krasniqi", date: "2025-09-04", type: "Kontrollë" },
-  { id: 2, name: "Elira Gashi", date: "2025-09-04", type: "Urgjente" },
-  { id: 3, name: "Blerim Hoti", date: "2025-09-06", type: "Operim" },
-];
-
-export default function DashboardPage({ onLogout, user }: NurseDashboardProps) {
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) {
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [view, setView] = useState<"dashboard" | "patients" | "add" | "addAppointment">("dashboard");
-  const [showWelcome, setShowWelcome] = useState<boolean>(true);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [view, setView] = useState<
+    "dashboard" | "patientsList" | "addPatient" | "addAppointment" | "patientDetail"
+  >("dashboard");
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>("");
 
+  const token = localStorage.getItem("token");
+
+  // ----------------------------
+  // Fetch patients
+  // ----------------------------
   useEffect(() => {
+    if (!token) return;
+
+    fetch("http://127.0.0.1:8000/api/patients", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+        return res.json();
+      })
+      .then((data) => setPatients(Array.isArray(data) ? data : data.data || []))
+      .catch(() => setError("Gabim gjatë marrjes së pacientëve"));
+  }, [token]);
+
+  // ----------------------------
+  // Fetch appointments
+  // ----------------------------
+  useEffect(() => {
+    if (!token) return;
+    setLoading(true);
+
+    fetch("http://127.0.0.1:8000/api/appointments", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        const appointmentsArray = Array.isArray(data) ? data : data.data || [];
+        // Only appointments assigned to this nurse
+        const filtered = appointmentsArray.filter((a) => a.nurse_id === user.id);
+        setAppointments(filtered);
+      })
+      .catch(() => setError("Gabim gjatë marrjes së termineve"))
+      .finally(() => setLoading(false));
+
     const timer = setTimeout(() => setShowWelcome(false), 2000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [token, user.id]);
 
-  const handleAddPatient = (patient: Omit<Patient, "id">) => {
-    const newPatient: Patient = { id: patients.length + 1, ...patient };
-    setPatients((prev) => [...prev, newPatient]);
+  const handleSelectPatient = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setView("patientDetail");
   };
 
-  const handleAddAppointment = (appointment: Omit<Appointment, "id">) => {
-    const newAppointment: Appointment = { id: appointments.length + 1, ...appointment };
-    setAppointments((prev) => [...prev, newAppointment]);
-  };
+  const handleAddPatient = (patient: Patient) => setPatients((prev) => [...prev, patient]);
+  const handleAddAppointment = (appt: Appointment) => setAppointments((prev) => [...prev, appt]);
 
-  // Status functions
-  const handleTick = (id: number) => {
-    setAppointments((prev) =>
-      prev.map((appt) => (appt.id === id ? { ...appt, status: "done" } : appt))
-    );
-  };
-
-  const handleX = (id: number) => {
-    setAppointments((prev) =>
-      prev.map((appt) => (appt.id === id ? { ...appt, status: "missed" } : appt))
-    );
-  };
-
-  const completedAppointments = appointments.filter(
-    (appt) => appt.status === "done" || appt.status === "missed"
-  );
-
-  if (showWelcome) {
+  // -------------------------------
+  // Views
+  // -------------------------------
+  if (showWelcome)
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-blue-50 to-blue-200 p-6">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 p-6">
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -82,159 +114,127 @@ export default function DashboardPage({ onLogout, user }: NurseDashboardProps) {
           <h1 className="text-3xl font-extrabold text-blue-700 mb-4 animate-pulse">
             Mirë se erdhe, {user.name}!
           </h1>
-          <p className="text-blue-600 text-base font-medium">
-            Po përgatitim panelin tuaj...
-          </p>
+          <p className="text-blue-600 text-base font-medium">Po përgatitim panelin tuaj...</p>
         </motion.div>
       </div>
     );
-  }
 
-  if (view === "patients") {
-    return <PatientsPage onBackToDashboard={() => setView("dashboard")} />;
-  }
+  if (view === "patientsList")
+    return (
+      <PatientsPage
+        patients={patients}
+        onBackToDashboard={() => setView("dashboard")}
+        onSelectPatient={handleSelectPatient}
+      />
+    );
 
-  if (view === "add") {
+  if (view === "patientDetail" && selectedPatient)
+    return (
+      <PatientDetail
+        patient={selectedPatient}
+        onBack={() => {
+          setSelectedPatient(null);
+          setView("patientsList");
+        }}
+        onAddReport={() => alert("Opsioni 'Shto Raport' do të lidhet në të ardhmen.")}
+      />
+    );
+
+  if (view === "addPatient")
     return (
       <AddPatientPage
         onBack={() => setView("dashboard")}
         onLogout={onLogout}
-        onAddPatient={handleAddPatient}
+        onPatientAdded={handleAddPatient}
       />
     );
-  }
 
-  if (view === "addAppointment") {
+  if (view === "addAppointment")
     return (
-      <AddAppointmentPage
+      <AddAppointment
         onBack={() => setView("dashboard")}
-        onAddAppointment={handleAddAppointment}
+        nurseId={user.id}
+        onNewAppointment={handleAddAppointment}
       />
     );
-  }
 
+  // -------------------------------
+  // Dashboard Main View
+  // -------------------------------
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-100 flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between px-8 py-5 bg-white shadow-md">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 flex flex-col">
+      <header className="flex items-center justify-between px-8 py-5 bg-white/80 backdrop-blur-sm shadow-md rounded-b-2xl">
         <h1 className="text-3xl font-bold text-gray-900">Paneli i Infermieres 🦷</h1>
         <button
           onClick={onLogout}
-          className="px-4 py-2 rounded-xl bg-red-500 text-white text-base font-semibold shadow-md hover:bg-red-600 transition"
+          className="px-5 py-2 rounded-xl bg-red-500 text-white text-base font-semibold shadow-md hover:bg-red-600 transition"
         >
           Dil
         </button>
       </header>
 
-      {/* Main */}
       <main className="flex-1 p-8 overflow-y-auto">
-        {/* Role Info */}
-        <div className="flex items-center justify-between mb-6">
-          <p className="text-gray-700 text-lg">
-            Roli juaj: <span className="font-semibold">{user.role}</span>
-          </p>
-        </div>
-
-        {/* Buttons */}
-        <div className="flex justify-center gap-4 mb-8">
+        <section className="bg-white shadow-lg rounded-3xl p-6 border border-gray-100 w-full mb-8 flex flex-wrap justify-center gap-6">
           <button
-            onClick={() => setView("patients")}
-            className="px-6 py-2 rounded-xl bg-blue-600 text-white text-base font-medium shadow hover:bg-blue-700 transition"
+            onClick={() => setView("patientsList")}
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-200 text-blue-800 font-semibold shadow-md hover:bg-blue-300"
           >
-            Shiko pacientët
+            Shiko Pacientët
           </button>
           <button
-            onClick={() => setView("add")}
-            className="px-6 py-2 rounded-xl bg-green-600 text-white text-base font-medium shadow hover:bg-green-700 transition"
+            onClick={() => setView("addPatient")}
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-green-200 text-green-800 font-semibold shadow-md hover:bg-green-300"
           >
-            Shto pacient
+            Shto Pacient
           </button>
           <button
             onClick={() => setView("addAppointment")}
-            className="px-6 py-2 rounded-xl bg-purple-600 text-white text-base font-medium shadow hover:bg-purple-700 transition"
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-yellow-200 text-yellow-800 font-semibold shadow-md hover:bg-yellow-300"
           >
-            Shto termin
+            Shto Termin
           </button>
-        </div>
-
-        {/* Appointments */}
-        <section className="bg-white shadow-lg rounded-3xl p-6 border border-gray-100 w-full mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Terminet për 5 ditët e ardhshme</h2>
-          <ul className="space-y-4">
-            {appointments.map((appt) => (
-              <li
-                key={appt.id}
-                className={`p-4 rounded-xl text-base shadow-sm transition flex justify-between items-center ${appt.type === "Urgjente"
-                    ? "bg-red-50 border border-red-300 hover:bg-red-100"
-                    : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
-                  }`}
-              >
-                <div>
-                  <span className="font-semibold text-gray-900">{appt.name}</span>
-                  <span className="text-gray-600 ml-2">
-                    {appt.date} ({appt.type})
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleTick(appt.id)}
-                    className={`px-2 py-1 rounded shadow text-white transition ${appt.status === "done" ? "bg-green-600" : "bg-gray-300 hover:bg-green-500"
-                      }`}
-                  >
-                    ✓
-                  </button>
-                  <button
-                    onClick={() => handleX(appt.id)}
-                    className={`px-2 py-1 rounded shadow text-white transition ${appt.status === "missed" ? "bg-red-600" : "bg-gray-300 hover:bg-red-500"
-                      }`}
-                  >
-                    X
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
         </section>
 
-        {/* Completed Appointments */}
-        {completedAppointments.length > 0 && (
-          <section className="bg-white shadow-lg rounded-3xl p-6 border border-gray-100 w-full">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Terminet e Përfunduar</h2>
-            <ul className="space-y-4">
-              {completedAppointments.map((appt) => (
+        {error && <div className="text-red-500 text-center mb-4">{error}</div>}
+        {loading && <div className="text-center mb-4 text-gray-600">Duke ngarkuar të dhënat...</div>}
+
+        <section className="bg-white shadow-lg rounded-3xl p-6 border border-gray-100 w-full">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            Terminet e ardhshme
+          </h2>
+          <ul className="space-y-4">
+            {appointments.length > 0 ? (
+              appointments.map((appt) => (
                 <li
                   key={appt.id}
-                  className={`p-4 rounded-xl text-base shadow-sm transition flex justify-between items-center ${appt.status === "done" ? "bg-green-50 border border-green-300" : "bg-red-50 border border-red-300"
+                  className={`p-4 rounded-xl text-base shadow-sm flex justify-between items-center ${appt.type === "Kontrollë Urgjente"
+                      ? "bg-red-50 border border-red-300 hover:bg-red-100"
+                      : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
                     }`}
                 >
                   <div>
-                    <span className="font-semibold text-gray-900">{appt.name}</span>
-                    <span className="text-gray-600 ml-2">
-                      {appt.date} ({appt.type})
-                    </span>
+                    <span className="font-semibold text-gray-900">{appt.patient_name}</span>{" "}
+                    – {appt.appointment_date} ({appt.type})
                   </div>
-                  <span className="font-semibold">
-                    {appt.status === "done" ? "Done ✓" : "Missed X"}
+                  <span
+                    className={`font-medium ${appt.status === "done"
+                        ? "text-green-600"
+                        : appt.status === "cancelled"
+                          ? "text-red-600"
+                          : "text-gray-600"
+                      }`}
+                  >
+                    {appt.status}
                   </span>
                 </li>
-              ))}
-            </ul>
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => {
-                  if (window.confirm("Jeni të sigurt që doni të fshini terminet e përfunduar?")) {
-                    setAppointments((prev) =>
-                      prev.filter((appt) => appt.status !== "done" && appt.status !== "missed")
-                    );
-                  }
-                }}
-                className="px-5 py-2 bg-red-500 text-white rounded-lg shadow hover:bg-red-600 transition"
-              >
-                Fshij Terminet e Përfunduar
-              </button>
-            </div>
-          </section>
-        )}
+              ))
+            ) : (
+              <li className="text-center text-gray-500 py-4">
+                Nuk ka termine për të shfaqur.
+              </li>
+            )}
+          </ul>
+        </section>
       </main>
     </div>
   );

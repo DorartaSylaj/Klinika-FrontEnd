@@ -1,28 +1,59 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import type { User, Role } from "../types/User";
+import type { User } from "../types/User";
 
 export default function LoginPage({ onLogin }: { onLogin: (u: User) => void }) {
-  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role | "">("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim() || !password.trim() || !role) {
+    if (!email.trim() || !password.trim()) {
       alert("Ju lutem plotësoni të gjitha fushat!");
       return;
     }
 
-    // krijo user objekt
-    const newUser: User = {
-      id: Date.now().toString(),
-      name,
-      role: role as Role,
-    };
+    setLoading(true);
 
-    onLogin(newUser);
+    try {
+      // 1️⃣ Get CSRF cookie (Sanctum)
+      await fetch("http://127.0.0.1:8000/sanctum/csrf-cookie", {
+        credentials: "include",
+      });
+
+      // 2️⃣ Login request
+      const res = await fetch("http://127.0.0.1:8000/api/login", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) throw new Error("Login failed");
+
+      const data = await res.json();
+
+      // Store token in localStorage for future API requests
+      localStorage.setItem("token", data.token);
+
+      const user: User = {
+        id: data.user.id.toString(),
+        name: data.user.name,
+        role: data.user.role,
+      };
+
+      // Save user in parent state
+      onLogin(user);
+    } catch (err) {
+      console.error(err);
+      alert("Email ose fjalëkalimi është i pasaktë!");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,10 +65,8 @@ export default function LoginPage({ onLogin }: { onLogin: (u: User) => void }) {
         className="relative w-full max-w-md bg-white p-10 rounded-3xl shadow-2xl border border-blue-100 overflow-hidden"
         style={{ fontFamily: "'Poppins', sans-serif" }}
       >
-        {/* Glossy highlight */}
         <div className="absolute inset-0 bg-gradient-to-tr from-white/60 to-transparent rounded-3xl pointer-events-none" />
 
-        {/* Logo + Title */}
         <div className="flex items-center justify-center gap-3 mb-6 relative z-10">
           <svg
             viewBox="0 0 24 24"
@@ -57,25 +86,20 @@ export default function LoginPage({ onLogin }: { onLogin: (u: User) => void }) {
           </h1>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4 relative z-10">
           <div>
-            <label className="block text-sm font-medium text-blue-900 mb-1">
-              Emri
-            </label>
+            <label className="block text-sm font-medium text-blue-900 mb-1">Email</label>
             <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Shkruaj emrin tuaj"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email duhet të përmbajë @"
               className="w-full px-3 py-2 rounded-xl border border-blue-200 focus:ring-2 focus:ring-blue-400 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-blue-900 mb-1">
-              Fjalëkalimi
-            </label>
+            <label className="block text-sm font-medium text-blue-900 mb-1">Fjalëkalimi</label>
             <input
               type="password"
               value={password}
@@ -85,33 +109,17 @@ export default function LoginPage({ onLogin }: { onLogin: (u: User) => void }) {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-blue-900 mb-1">
-              Roli
-            </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              className="w-full px-3 py-2 rounded-xl border border-blue-200 focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"
-            >
-              <option value="" disabled>
-                Zgjidhni rolin tuaj
-              </option>
-              <option value="admin">Admin</option>
-              <option value="doctor">Doktor</option>
-              <option value="nurse">Infermiere</option>
-            </select>
-          </div>
-
           <button
             type="submit"
-            className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-lg transition"
+            disabled={loading}
+            className={`w-full py-3 rounded-xl font-semibold shadow-lg transition ${loading ? "bg-blue-300 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
+              }`}
           >
-            Hyr
+            {loading ? "Duke u kyçur..." : "Hyr"}
           </button>
 
           <p className="text-xs text-blue-700/70 mt-1 text-center">
-            *Pas kyçjes ju do të ridrejtoheni në dashboard.
+            *Pas kyçjes ju do të ridrejtoheni në faqen kryesore.
           </p>
         </form>
       </motion.div>

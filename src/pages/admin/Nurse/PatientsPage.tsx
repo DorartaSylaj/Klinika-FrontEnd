@@ -1,108 +1,92 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import type { Patient } from "./types";
-import PatientDetail from "./PatientDetail";
-import { mockPatients } from "./mockPatients";
-import * as XLSX from "xlsx";
 
 type Props = {
+  patients: Patient[];
   onBackToDashboard: () => void;
-  onAddSuccess?: (msg: string) => void;
+  onSelectPatient: (patient: Patient) => void; // open ReportsPage for patient
 };
 
-export default function PatientsPage({ onBackToDashboard, onAddSuccess }: Props) {
-  const [patients] = useState<Patient[]>(mockPatients);
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [search, setSearch] = useState("");
+export default function PatientsPage({ patients, onBackToDashboard, onSelectPatient }: Props) {
+  const [searchQuery, setSearchQuery] = useState("");
 
   const filteredPatients = patients.filter((p) => {
-    const term = search.toLowerCase();
+    const fullName = `${p.first_name} ${p.last_name}`.toLowerCase();
     return (
-      p.name.toLowerCase().includes(term) ||
-      p.visitDate.includes(term) ||
-      p.symptoms.toLowerCase().includes(term)
+      fullName.includes(searchQuery.toLowerCase()) ||
+      (p.symptoms?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
     );
   });
 
-  // Funksioni për download Excel
-  const downloadExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(filteredPatients);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Pacientët");
-    XLSX.writeFile(workbook, "pacientet.xlsx");
-  };
-
-  if (selectedPatient) {
-    return (
-      <PatientDetail
-        patient={selectedPatient}
-        onBack={() => setSelectedPatient(null)}
-        onSuccess={(msg) => onAddSuccess && onAddSuccess(msg)}
-      />
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 p-8 font-sans">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Pacientët</h1>
-        <div className="space-x-2">
-          <button
-            onClick={onBackToDashboard}
-            className="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition"
-          >
-            Kthehu në Dashboard
-          </button>
-          <button
-            onClick={downloadExcel}
-            className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow transition"
-          >
-            Download Excel
-          </button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <button
+        onClick={onBackToDashboard}
+        className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mb-6"
+      >
+        Kthehu
+      </button>
 
-      {/* Search bar */}
+      <h1 className="text-2xl font-bold mb-4">Lista e Pacientëve</h1>
+
+      {/* Search input */}
       <input
         type="text"
-        placeholder="Kërko pacient sipas emrit, datës ose simptomave..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full md:w-1/2 mb-4 px-4 py-2 rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"
+        placeholder="Kërko sipas emrit, mbiemrit ose simptomave"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="mb-4 w-full p-2 border border-gray-300 rounded shadow focus:outline-none focus:ring focus:border-blue-300"
       />
 
-      {/* Tabela me pacientët */}
-      <table className="w-full bg-white rounded-lg shadow border-collapse">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="p-3 text-left">Emri</th>
-            <th className="p-3 text-left">Datëlindja</th>
-            <th className="p-3 text-left">Data Vizitës</th>
-            <th className="p-3 text-left">Simptoma</th>
-          </tr>
-        </thead>
-        <tbody>
+      {filteredPatients.length === 0 ? (
+        <p className="text-gray-500">Nuk ka pacientë të regjistruar.</p>
+      ) : (
+        <ul className="space-y-4">
           {filteredPatients.map((p) => (
-            <tr
+            <li
               key={p.id}
-              className="border-t cursor-pointer hover:bg-blue-50 transition"
-              onClick={() => setSelectedPatient(p)}
+              className="bg-white p-4 rounded shadow flex justify-between items-center"
             >
-              <td className="p-3">{p.name}</td>
-              <td className="p-3">{p.birthDate}</td>
-              <td className="p-3">{p.visitDate}</td>
-              <td className="p-3">{p.symptoms}</td>
-            </tr>
+              <div>
+                {/* Clickable name opens ReportsPage */}
+                <span
+                  onClick={() => onSelectPatient(p)}
+                  className="font-semibold cursor-pointer text-blue-600 hover:underline"
+                >
+                  {p.first_name} {p.last_name}
+                </span>{" "}
+                – {p.birth_date}
+              </div>
+
+              <div className="flex gap-4 items-center">
+                <span className="text-gray-500">
+                  {p.recovery_days ? `${p.recovery_days} ditë rikuperim` : "Pa të dhëna"}
+                </span>
+
+                {/* PDF button */}
+                <button
+                  onClick={() => {
+                    import("jspdf").then(({ jsPDF }) => {
+                      const doc = new jsPDF();
+                      const content = `
+Raporti për pacientin: ${p.first_name} ${p.last_name}
+Datëlindja: ${p.birth_date}
+Simptoma: ${p.symptoms || "Pa të dhëna"}
+Ditë rikuperim: ${p.recovery_days ?? "Pa të dhëna"}
+`;
+                      doc.text(content, 10, 10);
+                      doc.save(`Raporti_${p.first_name}_${p.last_name}.pdf`);
+                    });
+                  }}
+                  className="px-3 py-1 bg-green-500 text-white rounded shadow hover:bg-green-600 transition"
+                >
+                  Shkarko PDF
+                </button>
+              </div>
+            </li>
           ))}
-          {filteredPatients.length === 0 && (
-            <tr>
-              <td colSpan={4} className="p-4 text-center text-gray-500">
-                Nuk u gjet asnjë pacient
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+        </ul>
+      )}
     </div>
   );
 }

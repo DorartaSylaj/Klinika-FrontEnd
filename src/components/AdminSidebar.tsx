@@ -1,4 +1,3 @@
-import React from "react";
 
 interface SidebarProps {
   active: string;
@@ -21,11 +20,10 @@ export default function AdminSidebar({ active, onSelect }: SidebarProps) {
           <li key={item.key}>
             <button
               onClick={() => onSelect(item.key)}
-              className={`w-full text-left px-4 py-2 rounded-lg transition ${
-                active === item.key
+              className={`w-full text-left px-4 py-2 rounded-lg transition ${active === item.key
                   ? "bg-blue-500 font-semibold"
                   : "hover:bg-blue-600"
-              }`}
+                }`}
             >
               {item.label}
             </button>

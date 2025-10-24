@@ -1,4 +1,3 @@
-import React from "react";
 import StaffManagement from "./StaffManagement";
 
 export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
@@ -17,6 +16,7 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
 
       {/* Main Content */}
       <main className="p-6">
+        {/* StaffManagement handles fetching and adding staff */}
         <StaffManagement />
       </main>
     </div>

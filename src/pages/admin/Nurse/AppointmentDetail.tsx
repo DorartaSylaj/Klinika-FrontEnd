@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react"; // <-- Add this
 
 type Appointment = {
   id: number;
@@ -10,13 +10,40 @@ type Appointment = {
 type Props = {
   appointment: Appointment;
   onBack: () => void;
-  onSave: (updated: Appointment) => void;
 };
 
-export default function AppointmentDetail({ appointment, onBack, onSave }: Props) {
+export default function AppointmentDetail({ appointment, onBack }: Props) {
   const [name, setName] = useState(appointment.name);
   const [date, setDate] = useState(appointment.date);
   const [type, setType] = useState<"Kontrollë" | "Kontrollë Urgjente" | "Operim">(appointment.type);
+  const [loading, setLoading] = useState(false);
+
+  const handleSave = async () => {
+    if (!name || !date) return;
+
+    setLoading(true);
+    try {
+      const updatedAppointment = { id: appointment.id, name, date, type };
+
+      const response = await fetch(`/api/appointments/${appointment.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedAppointment),
+      });
+
+      if (!response.ok) throw new Error("Failed to update appointment");
+
+      const saved = await response.json();
+      console.log("Appointment updated:", saved);
+
+      onBack(); // go back to previous page
+    } catch (err) {
+      console.error(err);
+      alert("Diçka shkoi gabim gjatë ruajtjes së terminës.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 flex flex-col items-center">
@@ -62,14 +89,17 @@ export default function AppointmentDetail({ appointment, onBack, onSave }: Props
           <button
             onClick={onBack}
             className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition"
+            disabled={loading}
           >
             Kthehu
           </button>
           <button
-            onClick={() => onSave({ id: appointment.id, name, date, type })}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+            onClick={handleSave}
+            className={`px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition ${loading ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            disabled={loading}
           >
-            Ruaj Ndryshimet
+            {loading ? "Duke ruajtur..." : "Ruaj Ndryshimet"}
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import type { Patient } from "../types/Patient";
 import { Button } from "./ui/Button";
+
 
 export default function PatientsTable({ patients }: { patients: Patient[] }) {
   const [search, setSearch] = useState("");
