@@ -21,8 +21,8 @@ export default function ReportsPage({
     patient ||
     (appointment
       ? {
-        id: 0,
-        first_name: appointment.patient_name,
+        id: appointment.patient_id || 0,
+        first_name: appointment.patient_name || "",
         last_name: "",
         birth_date: "",
         symptoms: "",
@@ -62,9 +62,10 @@ export default function ReportsPage({
   }, [token]);
 
   // Filter patients by search input for autocomplete
-  const filteredPatients = patientsList.filter((p) =>
-    p.first_name.toLowerCase().startsWith(searchPatient.toLowerCase()) ||
-    p.last_name.toLowerCase().startsWith(searchPatient.toLowerCase())
+  const filteredPatients = patientsList.filter(
+    (p) =>
+      p.first_name.toLowerCase().startsWith(searchPatient.toLowerCase()) ||
+      p.last_name.toLowerCase().startsWith(searchPatient.toLowerCase())
   );
 
   useEffect(() => {
@@ -79,8 +80,10 @@ export default function ReportsPage({
   }, [selectedPatient]);
 
   const handleSave = async () => {
-    if (!selectedPatient) {
-      setError("Zgjidhni një pacient para se të ruani raportin.");
+    // FIX: derive patient_id correctly
+    const patientId = selectedPatient?.id || appointment?.patient_id;
+    if (!patientId) {
+      setError("Zgjidhni një pacient përpara se të ruani raportin.");
       return;
     }
 
@@ -95,16 +98,15 @@ export default function ReportsPage({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          patient_id: selectedPatient.id,
+          patient_id: patientId,
+          appointment_id: appointment?.id || null, // optional, link to appointment
           report: reportText,
         }),
       });
 
       if (!res.ok) throw new Error(`Server responded with ${res.status}`);
-
       const data = await res.json();
       console.log("Report saved:", data);
-
       onSave();
     } catch (err) {
       console.error("Failed to save report:", err);

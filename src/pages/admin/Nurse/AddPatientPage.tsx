@@ -32,11 +32,18 @@ const AddPatientPage: React.FC<AddPatientPageProps> = ({ onBack, onLogout, onPat
 
   const [loading, setLoading] = useState(false);
 
+  const token = localStorage.getItem("token");
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!form.first_name || !form.last_name || !form.birth_date) {
       alert("Ju lutem plotësoni emrin, mbiemrin dhe datën e lindjes.");
+      return;
+    }
+
+    if (!token) {
+      alert("Ju nuk jeni i kyçur. Ju lutem rifreskoni faqen dhe logohuni.");
       return;
     }
 
@@ -51,13 +58,16 @@ const AddPatientPage: React.FC<AddPatientPageProps> = ({ onBack, onLogout, onPat
         recovery_days: form.recovery_days ? Number(form.recovery_days) : undefined,
       };
 
-      const response = await fetch("http://127.0.0.1:8000/api/patients", {
+      const response = await fetch("http://127.0.0.1:8000/api/nurse/patients", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error("Failed to save patient");
+      if (!response.ok) throw new Error(`Server responded with ${response.status}`);
 
       const savedPatient: Patient = await response.json();
 

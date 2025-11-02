@@ -1,3 +1,6 @@
+// ------------------
+// NurseDashboard.tsx
+// ------------------
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import type { User } from "../../../types/User";
@@ -47,13 +50,11 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
 
   const token = localStorage.getItem("token");
 
-  // ----------------------------
   // Fetch patients
-  // ----------------------------
   useEffect(() => {
     if (!token) return;
 
-    fetch("http://127.0.0.1:8000/api/patients", {
+    fetch("http://127.0.0.1:8000/api/nurse/patients", {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
@@ -64,14 +65,12 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
       .catch(() => setError("Gabim gjatë marrjes së pacientëve"));
   }, [token]);
 
-  // ----------------------------
-  // Fetch appointments
-  // ----------------------------
+  // Fetch appointments (fixed nurse endpoint)
   useEffect(() => {
     if (!token) return;
     setLoading(true);
 
-    fetch("http://127.0.0.1:8000/api/appointments", {
+    fetch("http://127.0.0.1:8000/api/nurse/appointments", {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
@@ -80,16 +79,14 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
       })
       .then((data) => {
         const appointmentsArray = Array.isArray(data) ? data : data.data || [];
-        // Only appointments assigned to this nurse
-        const filtered = appointmentsArray.filter((a) => a.nurse_id === user.id);
-        setAppointments(filtered);
+        setAppointments(appointmentsArray);
       })
       .catch(() => setError("Gabim gjatë marrjes së termineve"))
       .finally(() => setLoading(false));
 
     const timer = setTimeout(() => setShowWelcome(false), 2000);
     return () => clearTimeout(timer);
-  }, [token, user.id]);
+  }, [token]);
 
   const handleSelectPatient = (patient: Patient) => {
     setSelectedPatient(patient);
@@ -99,9 +96,6 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
   const handleAddPatient = (patient: Patient) => setPatients((prev) => [...prev, patient]);
   const handleAddAppointment = (appt: Appointment) => setAppointments((prev) => [...prev, appt]);
 
-  // -------------------------------
-  // Views
-  // -------------------------------
   if (showWelcome)
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 p-6">
@@ -158,9 +152,6 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
       />
     );
 
-  // -------------------------------
-  // Dashboard Main View
-  // -------------------------------
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 flex flex-col">
       <header className="flex items-center justify-between px-8 py-5 bg-white/80 backdrop-blur-sm shadow-md rounded-b-2xl">
@@ -204,12 +195,12 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
           </h2>
           <ul className="space-y-4">
             {appointments.length > 0 ? (
-              appointments.map((appt) => (
+              appointments.map((appt, index) => (
                 <li
-                  key={appt.id}
+                  key={appt.id || index}
                   className={`p-4 rounded-xl text-base shadow-sm flex justify-between items-center ${appt.type === "Kontrollë Urgjente"
-                      ? "bg-red-50 border border-red-300 hover:bg-red-100"
-                      : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
+                    ? "bg-red-50 border border-red-300 hover:bg-red-100"
+                    : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
                     }`}
                 >
                   <div>
@@ -218,10 +209,10 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
                   </div>
                   <span
                     className={`font-medium ${appt.status === "done"
-                        ? "text-green-600"
-                        : appt.status === "cancelled"
-                          ? "text-red-600"
-                          : "text-gray-600"
+                      ? "text-green-600"
+                      : appt.status === "cancelled"
+                        ? "text-red-600"
+                        : "text-gray-600"
                       }`}
                   >
                     {appt.status}

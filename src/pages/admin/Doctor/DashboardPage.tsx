@@ -29,7 +29,6 @@ export default function DoctorDashboard({ user, onLogout }: DoctorDashboardProps
   const [showDone, setShowDone] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const token = localStorage.getItem("token");
 
   // Fetch patients
@@ -57,7 +56,16 @@ export default function DoctorDashboard({ user, onLogout }: DoctorDashboardProps
         if (!res.ok) throw new Error(`Server responded with ${res.status}`);
         return res.json();
       })
-      .then((json) => setAppointments(json.data || []))
+      .then((json) => {
+        const appts = json.data || [];
+        const mappedAppts = appts.map((a: any) => ({
+          ...a,
+          patient_name: a.patient
+            ? `${a.patient.first_name} ${a.patient.last_name}`
+            : a.patient_name || "Pa emër",
+        }));
+        setAppointments(mappedAppts);
+      })
       .catch(() => setError("Gabim gjatë marrjes së termineve"))
       .finally(() => setLoading(false));
   };
@@ -67,14 +75,6 @@ export default function DoctorDashboard({ user, onLogout }: DoctorDashboardProps
     const timer = setTimeout(() => setShowWelcome(false), 2000);
     return () => clearTimeout(timer);
   }, [token]);
-
-  const filteredAppointments = appointments
-    .filter((a) => a.status === "pending" || (showDone && a.status === "done"))
-    .sort((a, b) => {
-      const dateA = new Date(a.appointment_date).getTime();
-      const dateB = new Date(b.appointment_date).getTime();
-      return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
-    });
 
   // Update appointment status in DB
   const updateStatus = async (id: number, status: "done" | "cancelled") => {
@@ -185,70 +185,86 @@ export default function DoctorDashboard({ user, onLogout }: DoctorDashboardProps
         {loading && <div className="text-center mb-4">Duke ngarkuar të dhënat...</div>}
 
         <section className="bg-white shadow-lg rounded-3xl p-6 border border-gray-100 w-full">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-800">Terminet e ardhshme</h2>
-            <button
-              onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-              className="px-4 py-1 rounded bg-gray-200 text-gray-800 shadow hover:bg-gray-300 transition"
-            >
-              {sortOrder === "asc" ? "Nga më i afërti → më i larguari" : "Nga më i larguari → më i afërti"}
-            </button>
-          </div>
-          <ul className="space-y-4">
-            {filteredAppointments.length > 0 ? (
-              filteredAppointments.map((a) => (
-                <li
-                  key={a.id}
-                  className={`p-4 rounded-xl text-base shadow-sm flex justify-between items-center ${a.type === "Urgjente"
-                    ? "bg-red-50 border border-red-300 hover:bg-red-100"
-                    : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
-                    }`}
-                >
-                  <div>
-                    <span className="font-semibold">{a.patient_name}</span> – {a.appointment_date} ({a.type})
-                  </div>
-                  <div className="flex gap-2">
-                    {a.status !== "done" && (
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Terminet e ardhshme</h2>
+
+          {/* Upcoming Appointments */}
+          <ul className="space-y-4 mb-6">
+            {appointments.filter(a => a.status === "pending").length > 0 ? (
+              appointments
+                .filter(a => a.status === "pending")
+                .map((a) => (
+                  <li
+                    key={a.id}
+                    className={`p-4 rounded-2xl shadow-sm flex justify-between items-center ${a.type === "Urgjente" ? "bg-red-50 border border-red-300 hover:bg-red-100" : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
+                      }`}
+                  >
+                    <div>
+                      <span className="font-semibold text-gray-800">{a.patient_name}</span> – {a.appointment_date} ({a.type})
+                    </div>
+                    <div className="flex gap-2">
                       <button
                         onClick={() => updateStatus(a.id, "done")}
-                        className="flex items-center justify-center w-10 h-10 rounded-full bg-green-500 hover:bg-green-600 text-white shadow transition"
+                        className="px-4 py-2 rounded-xl bg-green-500 text-white font-medium shadow hover:bg-green-600 transition"
                       >
-                        ✅
+                        Termin i përfunduar
                       </button>
-                    )}
-                    {a.status !== "cancelled" && (
                       <button
                         onClick={() => updateStatus(a.id, "cancelled")}
-                        className="flex items-center justify-center w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white shadow transition"
+                        className="px-4 py-2 rounded-xl bg-red-500 text-white font-medium shadow hover:bg-red-600 transition"
                       >
-                        ❌
+                        Termin i humbur
                       </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setSelectedAppointment(a);
-                        setSelectedPatient(null);
-                        setView("report");
-                      }}
-                      className="px-3 py-1 rounded bg-blue-600 text-white shadow hover:bg-blue-700"
-                    >
-                      Shto Raport
-                    </button>
-                  </div>
-                </li>
-              ))
+                      <button
+                        onClick={() => {
+                          setSelectedAppointment(a);
+                          setSelectedPatient(null);
+                          setView("report");
+                        }}
+                        className="px-4 py-2 rounded-xl bg-blue-600 text-white font-medium shadow hover:bg-blue-700 transition"
+                      >
+                        Shto raport
+                      </button>
+                    </div>
+                  </li>
+                ))
             ) : (
               <li className="text-center text-gray-500 py-4">Nuk ka termine për të shfaqur.</li>
             )}
           </ul>
-          <div className="mt-6 flex justify-center">
+
+          {/* Show Done Appointments Button */}
+          <div className="flex justify-center mb-4">
             <button
-              onClick={() => setShowDone((prev) => !prev)}
+              onClick={() => setShowDone(true)}
               className="px-6 py-2 rounded-xl bg-indigo-600 text-white font-medium shadow hover:bg-indigo-700 transition"
             >
-              {showDone ? "Fshi terminet e përfunduara" : "Shfaq terminet e përfunduara"}
+              Terminet e përfunduara
             </button>
           </div>
+
+          {/* Done Appointments Table */}
+          {showDone && (
+            <div className="mt-4 bg-gray-50 rounded-2xl p-4 shadow border border-gray-200">
+              <div className="flex justify-end mb-4">
+                <button
+                  onClick={() => setAppointments(prev => prev.filter(a => a.status !== "done"))}
+                  className="px-4 py-2 rounded-xl bg-red-500 text-white font-medium shadow hover:bg-red-600 transition"
+                >
+                  Fshi terminet e përfunduara
+                </button>
+              </div>
+              <ul className="space-y-3">
+                {appointments.filter(a => a.status === "done").map(a => (
+                  <li key={a.id} className="p-3 rounded-xl bg-green-50 border border-green-200 flex justify-between items-center">
+                    <span className="font-semibold text-gray-800">{a.patient_name}</span> – {a.appointment_date} ({a.type})
+                  </li>
+                ))}
+                {appointments.filter(a => a.status === "done").length === 0 && (
+                  <li className="text-center text-gray-500 py-2">Nuk ka termine për të shfaqur.</li>
+                )}
+              </ul>
+            </div>
+          )}
         </section>
       </main>
     </div>
