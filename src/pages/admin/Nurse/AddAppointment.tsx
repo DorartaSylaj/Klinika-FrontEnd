@@ -1,193 +1,103 @@
-import React, { useState, useEffect } from "react";
-import DatePicker, { registerLocale } from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-import { sq } from "date-fns/locale";
-import type { Appointment as BackendAppointment } from "../../../types/Patient";
-import type { Patient } from "./AddPatientPage";
-registerLocale("sq", sq);
+import { useState } from "react";
+import type { Appointment } from "./NurseDashboard";
 
-export type AppointmentType = "Kontrollë" | "Kontrollë Urgjente" | "Operim";
-
-export interface Appointment {
-  id: number;
-  patient_name: string;
-  appointment_date: string;
-  type: AppointmentType;
-  status?: string;
-}
-
-type Props = {
+type AddAppointmentProps = {
   onBack: () => void;
   nurseId: number;
-  onNewAppointment?: (appt: Appointment) => void;
+  onNewAppointment: (appt: Appointment) => void;
+  appointmentToEdit?: Appointment;
 };
 
-export default function AddAppointment({ onBack, nurseId, onNewAppointment }: Props) {
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
-  const [date, setDate] = useState<Date | null>(null);
-  const [time, setTime] = useState<string>(""); // HH:MM
-  const [type, setType] = useState<AppointmentType>("Kontrollë");
+export default function AddAppointment({ onBack, nurseId, onNewAppointment, appointmentToEdit }: AddAppointmentProps) {
+  const [patientName, setPatientName] = useState(appointmentToEdit?.patient_name || "");
+  const [appointmentDate, setAppointmentDate] = useState(appointmentToEdit?.appointment_date || "");
+  const [type, setType] = useState<"Kontrollë" | "Kontrollë Urgjente" | "Operim">(appointmentToEdit?.type || "Kontrollë");
+  const [doctorId, setDoctorId] = useState<number>(appointmentToEdit?.nurse_id || 3);
+  const [patientEmail, setPatientEmail] = useState(appointmentToEdit?.patient_email || "");
   const [loading, setLoading] = useState(false);
 
   const token = localStorage.getItem("token");
 
-  // Fetch patients
-  useEffect(() => {
-    if (!token) return;
-    fetch("http://127.0.0.1:8000/api/patients", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => setPatients(Array.isArray(data) ? data : data.data || []))
-      .catch(() => alert("Gabim gjatë marrjes së pacientëve"));
-  }, [token]);
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!selectedPatientId || !date || !time) {
-      alert("Ju lutem plotësoni të gjitha fushat e kërkuara!");
-      return;
-    }
-
-    const datetime = new Date(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate(),
-      parseInt(time.split(":")[0]),
-      parseInt(time.split(":")[1])
-    ).toISOString().slice(0, 19).replace("T", " "); // "YYYY-MM-DD HH:MM:SS"
-
-    const appointmentData = {
-      nurse_id: nurseId,
-      patient_id: selectedPatientId,
-      appointment_date: datetime,
-      type,
-      status: "pending",
-    };
-
+  const handleSubmit = async () => {
     setLoading(true);
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/appointments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(appointmentData),
-      });
-
-      if (!response.ok) throw new Error("Failed to save appointment");
-
-      const savedAppointment: BackendAppointment = await response.json();
-
-      const patient = patients.find((p) => p.id === selectedPatientId);
-
-      const newAppt: Appointment = {
-        id: savedAppointment.appointment.id,
-        patient_name: patient ? `${patient.first_name} ${patient.last_name}` : "Pa emër",
-        appointment_date: savedAppointment.appointment.appointment_date,
-        type: savedAppointment.appointment.type as AppointmentType,
-        status: savedAppointment.appointment.status || undefined,
+      const payload = {
+        patient_name: patientName,
+        appointment_date: appointmentDate,
+        type,
+        doctor_id: doctorId,
+        patient_email: patientEmail,
       };
 
-      if (onNewAppointment) onNewAppointment(newAppt);
+      const url = appointmentToEdit
+        ? `http://127.0.0.1:8000/api/nurse/appointments/${appointmentToEdit.id}`
+        : "http://127.0.0.1:8000/api/nurse/appointments";
 
-      alert("Termini u shtua me sukses!");
+      const res = await fetch(url, {
+        method: appointmentToEdit ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Gabim gjatë ruajtjes së terminës");
+
+      onNewAppointment(data.appointment);
       onBack();
-    } catch (err) {
-      console.error(err);
-      alert("Gabim gjatë ruajtjes së terminës!");
+    } catch (err: any) {
+      alert(err.message || "Ndodhi një gabim gjatë ruajtjes së terminës");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 flex items-center justify-center p-6">
-      <div className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-lg space-y-6">
-        <h1 className="text-2xl font-bold text-center text-blue-700">Shto Termin</h1>
-
-        <form onSubmit={handleSave} className="space-y-5">
-          {/* Patient Selection */}
-          <div>
-            <label className="block text-gray-700 font-medium mb-1">Pacienti</label>
-            <select
-              value={selectedPatientId ?? ""}
-              onChange={(e) => setSelectedPatientId(Number(e.target.value))}
-              className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 outline-none"
-              required
-            >
-              <option value="">Zgjidh pacientin</option>
-              {patients.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.first_name} {p.last_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Appointment Date */}
-          <div>
-            <label className="block text-gray-700 font-medium mb-1">Data e terminit</label>
-            <DatePicker
-              selected={date}
-              onChange={(d) => setDate(d)}
-              dateFormat="dd/MM/yyyy"
-              locale="sq"
-              placeholderText="Zgjidh datën"
-              className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 outline-none"
-              showMonthDropdown
-              showYearDropdown
-              dropdownMode="select"
-            />
-          </div>
-
-          {/* Appointment Time */}
-          <div>
-            <label className="block text-gray-700 font-medium mb-1">Ora e terminit</label>
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 outline-none"
-              required
-            />
-          </div>
-
-          {/* Appointment Type */}
-          <div>
-            <label className="block text-gray-700 font-medium mb-1">Lloji i terminit</label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as AppointmentType)}
-              className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 outline-none"
-            >
-              <option value="Kontrollë">Kontrollë</option>
-              <option value="Kontrollë Urgjente">Kontrollë Urgjente</option>
-              <option value="Operim">Operim</option>
-            </select>
-          </div>
-
-          {/* Buttons */}
-          <div className="flex justify-between pt-4">
-            <button
-              type="button"
-              onClick={onBack}
-              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition"
-              disabled={loading}
-            >
-              Kthehu
-            </button>
-
-            <button
-              type="submit"
-              className={`px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition ${loading ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              disabled={loading}
-            >
-              {loading ? "Duke ruajtur..." : "Shto Termin"}
-            </button>
-          </div>
-        </form>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 p-6">
+      <div className="bg-white p-8 rounded-3xl shadow-lg max-w-lg w-full">
+        <h2 className="text-2xl font-semibold mb-4">{appointmentToEdit ? "Modifiko Termin" : "Shto Termin"}</h2>
+        <div className="flex flex-col gap-4">
+          <input
+            type="text"
+            placeholder="Emri pacientit"
+            value={patientName}
+            onChange={(e) => setPatientName(e.target.value)}
+            className="border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <input
+            type="email"
+            placeholder="Email pacientit (opsional)"
+            value={patientEmail}
+            onChange={(e) => setPatientEmail(e.target.value)}
+            className="border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <input
+            type="datetime-local"
+            value={appointmentDate}
+            onChange={(e) => setAppointmentDate(e.target.value)}
+            className="border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <select value={type} onChange={(e) => setType(e.target.value as any)} className="border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="Kontrollë">Kontrollë</option>
+            <option value="Kontrollë Urgjente">Kontrollë Urgjente</option>
+            <option value="Operim">Operim</option>
+          </select>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-yellow-500 text-white py-2 px-4 rounded-lg hover:bg-yellow-600 font-semibold transition"
+          >
+            {loading ? "Duke ruajtur..." : appointmentToEdit ? "Ruaj Ndryshimet" : "Ruaj Termin"}
+          </button>
+          <button
+            onClick={onBack}
+            className="bg-gray-300 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-400 font-semibold transition"
+          >
+            Kthehu
+          </button>
+        </div>
       </div>
     </div>
   );

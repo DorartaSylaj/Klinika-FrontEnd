@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import type { User } from "../types/User";
+import api from "../api"; // ⬅️ added axios instance
 
 export default function LoginPage({ onLogin }: { onLogin: (u: User) => void }) {
   const [email, setEmail] = useState("");
@@ -18,26 +19,18 @@ export default function LoginPage({ onLogin }: { onLogin: (u: User) => void }) {
     setLoading(true);
 
     try {
-      // 1️⃣ Get CSRF cookie (Sanctum)
-      await fetch("http://127.0.0.1:8000/sanctum/csrf-cookie", {
-        credentials: "include",
-      });
+      // 1️⃣ Get CSRF cookie
+      await api.get("/sanctum/csrf-cookie");
 
       // 2️⃣ Login request
-      const res = await fetch("http://127.0.0.1:8000/api/login", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
+      const res = await api.post("/api/login", {
+        email: email.trim(),
+        password: password.trim(),
       });
 
-      if (!res.ok) throw new Error("Login failed");
+      const data = res.data;
 
-      const data = await res.json();
-
-      // Store token in localStorage for future API requests
+      // Store token
       localStorage.setItem("token", data.token);
 
       const user: User = {
@@ -46,11 +39,11 @@ export default function LoginPage({ onLogin }: { onLogin: (u: User) => void }) {
         role: data.user.role,
       };
 
-      // Save user in parent state
       onLogin(user);
-    } catch (err) {
+
+    } catch (err: any) {
       console.error(err);
-      alert("Email ose fjalëkalimi është i pasaktë!");
+      alert(err.message || "Email ose fjalëkalimi është i pasaktë!");
     } finally {
       setLoading(false);
     }

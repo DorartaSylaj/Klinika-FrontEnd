@@ -1,6 +1,3 @@
-// ------------------
-// NurseDashboard.tsx
-// ------------------
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import type { User } from "../../../types/User";
@@ -30,6 +27,7 @@ export type Appointment = {
   status: "pending" | "done" | "cancelled";
   notes?: string;
   nurse_id?: number;
+  patient_email?: string;
 };
 
 type NurseDashboardProps = {
@@ -47,13 +45,14 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
   const [showWelcome, setShowWelcome] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
+  const [appointmentToEdit, setAppointmentToEdit] = useState<Appointment | null>(null);
+  const [appointmentFilter, setAppointmentFilter] = useState<"all" | "pending" | "done" | "cancelled">("all");
 
   const token = localStorage.getItem("token");
 
   // Fetch patients
   useEffect(() => {
     if (!token) return;
-
     fetch("http://127.0.0.1:8000/api/nurse/patients", {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -65,7 +64,7 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
       .catch(() => setError("Gabim gjatë marrjes së pacientëve"));
   }, [token]);
 
-  // Fetch appointments (fixed nurse endpoint)
+  // Fetch appointments
   useEffect(() => {
     if (!token) return;
     setLoading(true);
@@ -93,8 +92,37 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
     setView("patientDetail");
   };
 
-  const handleAddPatient = (patient: Patient) => setPatients((prev) => [...prev, patient]);
-  const handleAddAppointment = (appt: Appointment) => setAppointments((prev) => [...prev, appt]);
+  const handleAddAppointment = (appt: Appointment) => {
+    setAppointments((prev) => {
+      const index = prev.findIndex((a) => a.id === appt.id);
+      if (index !== -1) {
+        const updated = [...prev];
+        updated[index] = appt;
+        return updated;
+      }
+      return [...prev, appt];
+    });
+  };
+
+  const handleClearAppointments = async () => {
+    if (!token) return;
+    if (!confirm("A jeni të sigurt që dëshironi të fshini të gjitha terminet e përfunduara dhe të humbura?")) return;
+
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/nurse/appointments/clear-non-pending", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Gabim gjatë fshirjes së termineve");
+      setAppointments((prev) => prev.filter((appt) => appt.status === "pending"));
+    } catch (err) {
+      alert("Ndodhi një gabim gjatë fshirjes së termineve");
+    }
+  };
+
+  const filteredAppointments = appointments.filter((appt) =>
+    appointmentFilter === "all" ? true : appt.status === appointmentFilter
+  );
 
   if (showWelcome)
     return (
@@ -106,7 +134,7 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
           className="bg-white p-12 rounded-3xl shadow-2xl text-center w-full max-w-md"
         >
           <h1 className="text-3xl font-extrabold text-blue-700 mb-4 animate-pulse">
-            Mirë se erdhe, {user.name}!
+            Mirë se erdhe, Inf {user.name}!
           </h1>
           <p className="text-blue-600 text-base font-medium">Po përgatitim panelin tuaj...</p>
         </motion.div>
@@ -139,16 +167,20 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
       <AddPatientPage
         onBack={() => setView("dashboard")}
         onLogout={onLogout}
-        onPatientAdded={handleAddPatient}
+        onPatientAdded={(patient) => setPatients((prev) => [...prev, patient])}
       />
     );
 
   if (view === "addAppointment")
     return (
       <AddAppointment
-        onBack={() => setView("dashboard")}
+        onBack={() => {
+          setAppointmentToEdit(null);
+          setView("dashboard");
+        }}
         nurseId={user.id}
         onNewAppointment={handleAddAppointment}
+        appointmentToEdit={appointmentToEdit || undefined}
       />
     );
 
@@ -184,18 +216,42 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
           >
             Shto Termin
           </button>
+          <button
+            onClick={handleClearAppointments}
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-red-200 text-red-800 font-semibold shadow-md hover:bg-red-300"
+          >
+            Fshi Terminet
+          </button>
         </section>
 
         {error && <div className="text-red-500 text-center mb-4">{error}</div>}
         {loading && <div className="text-center mb-4 text-gray-600">Duke ngarkuar të dhënat...</div>}
 
         <section className="bg-white shadow-lg rounded-3xl p-6 border border-gray-100 w-full">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            Terminet e ardhshme
-          </h2>
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Terminet e ardhshme</h2>
+
+          <div className="flex gap-3 mb-4 flex-wrap">
+            {["all", "pending", "done", "cancelled"].map((status) => (
+              <button
+                key={status}
+                onClick={() => setAppointmentFilter(status as any)}
+                className={`px-4 py-2 rounded-xl font-semibold shadow-md ${appointmentFilter === status ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                  }`}
+              >
+                {status === "all"
+                  ? "Të gjitha"
+                  : status === "pending"
+                    ? "Në pritje"
+                    : status === "done"
+                      ? "E kryer"
+                      : "Anuluar"}
+              </button>
+            ))}
+          </div>
+
           <ul className="space-y-4">
-            {appointments.length > 0 ? (
-              appointments.map((appt, index) => (
+            {filteredAppointments.length > 0 ? (
+              filteredAppointments.map((appt, index) => (
                 <li
                   key={appt.id || index}
                   className={`p-4 rounded-xl text-base shadow-sm flex justify-between items-center ${appt.type === "Kontrollë Urgjente"
@@ -207,22 +263,31 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
                     <span className="font-semibold text-gray-900">{appt.patient_name}</span>{" "}
                     – {appt.appointment_date} ({appt.type})
                   </div>
-                  <span
-                    className={`font-medium ${appt.status === "done"
-                      ? "text-green-600"
-                      : appt.status === "cancelled"
-                        ? "text-red-600"
-                        : "text-gray-600"
-                      }`}
-                  >
-                    {appt.status}
-                  </span>
+                  <div className="flex gap-2 items-center">
+                    <span
+                      className={`font-medium ${appt.status === "done" ? "text-green-600" : appt.status === "cancelled" ? "text-red-600" : "text-gray-600"
+                        }`}
+                    >
+                      {appt.status === "pending"
+                        ? "Në pritje"
+                        : appt.status === "done"
+                          ? "E kryer"
+                          : "Anuluar"}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setAppointmentToEdit(appt);
+                        setView("addAppointment");
+                      }}
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm font-semibold"
+                    >
+                      Modifiko
+                    </button>
+                  </div>
                 </li>
               ))
             ) : (
-              <li className="text-center text-gray-500 py-4">
-                Nuk ka termine për të shfaqur.
-              </li>
+              <li className="text-center text-gray-500 py-4">Nuk ka termine për të shfaqur.</li>
             )}
           </ul>
         </section>
