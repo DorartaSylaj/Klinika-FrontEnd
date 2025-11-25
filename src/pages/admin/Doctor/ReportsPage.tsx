@@ -11,49 +11,53 @@ type ReportsPageProps = {
 };
 
 export default function ReportsPage({ patient, appointment, onSave, onBack }: ReportsPageProps) {
-  const [reportText, setReportText] = useState(
-    "Ju lutem pershkruani me kujdes per pacientin..." // <- placeholder text
-  );
+  const [reportText, setReportText] = useState("Ju lutem pershkruani me kujdes për pacientin...");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const token = localStorage.getItem("token");
 
-  // Update placeholder text if appointment has a patient
+  // Prefill report text based on appointment or patient
   useEffect(() => {
     if (appointment) {
-      setReportText(
-        `Ju lutem pershkruani me kujdes per pacientin ${appointment.patient_name}...`
-      );
+      setReportText(`Ju lutem pershkruani me kujdes për pacientin ${appointment.patient_name}...`);
     } else if (patient) {
-      setReportText(`Ju lutem pershkruani me kujdes per pacientin ${patient.first_name}...`);
+      setReportText(`Ju lutem pershkruani me kujdes për pacientin ${patient.first_name} ${patient.last_name || ""}...`);
     }
   }, [appointment, patient]);
 
   const handleSave = async () => {
-    if (!appointment?.patient_id && !patient?.id) {
-      setError("Pacienti nuk është i lidhur me termin.");
-      return;
-    }
-
     setLoading(true);
     setError("");
 
     try {
+      const payload = {
+        patient_id: appointment?.patient_id || patient?.id || null,
+        appointment_id: appointment?.id || null,
+        content: reportText,
+        patient_name: patient?.first_name
+          ? `${patient.first_name} ${patient.last_name || ""}`
+          : appointment?.patient_name || null,
+        patient_email: patient?.email || appointment?.patient_email || null,
+      };
+
+      if (!payload.patient_id && !payload.patient_name) {
+        setError("Pacienti nuk është i lidhur me termin.");
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch("http://127.0.0.1:8000/api/reports", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          patient_id: appointment?.patient_id || patient?.id,
-          appointment_id: appointment?.id || null,
-          content: reportText,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) throw new Error("Gabim gjatë ruajtjes së raportit");
+
       onSave();
     } catch (err) {
       console.error(err);
@@ -77,7 +81,7 @@ export default function ReportsPage({ patient, appointment, onSave, onBack }: Re
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-100 flex flex-col p-8">
       <header className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">
-          Raport për {appointment?.patient_name || patient?.first_name}
+          Raport për {appointment?.patient_name || patient?.first_name || "Pa emër"}
         </h1>
         <button
           onClick={onBack}
@@ -90,7 +94,7 @@ export default function ReportsPage({ patient, appointment, onSave, onBack }: Re
       <textarea
         value={reportText}
         onChange={(e) => setReportText(e.target.value)}
-        placeholder="Ju lutem pershkruani me kujdes per pacientin..."
+        placeholder="Ju lutem pershkruani me kujdes për pacientin..."
         className="w-full h-64 p-4 border border-gray-300 rounded shadow focus:outline-none focus:ring focus:border-blue-300 resize-none text-gray-700"
       />
 

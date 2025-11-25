@@ -5,27 +5,36 @@ import type { Patient } from "./types";
 type Props = {
   patient: Patient;
   onBack: () => void;
-  onAddReport: (patient: Patient) => void; // open ReportsPage for this patient
 };
 
-export default function PatientDetail({ patient, onBack, onAddReport }: Props) {
+export default function PatientDetail({ patient, onBack }: Props) {
   const handleDownloadWord = async () => {
     const doc = new Document({
       sections: [
         {
           properties: {},
           children: [
+            // Header
             new Paragraph({
-              children: [new TextRun({ text: `Raporti Pacientit: ${patient.first_name} ${patient.last_name}`, bold: true, size: 28 })],
+              children: [
+                new TextRun({
+                  text: `Raporti Pacientit: ${patient.first_name} ${patient.last_name}`,
+                  bold: true,
+                  size: 28,
+                }),
+              ],
             }),
-            new Paragraph({ text: "" }),
-            new Paragraph({ children: [new TextRun(`Datëlindja: ${patient.birth_date}`)] }),
-            new Paragraph({ children: [new TextRun(`Data Vizitës: ${patient.visit_date}`)] }),
-            patient.recovery_days &&
-            new Paragraph({ children: [new TextRun(`Ditët e rikuperimit: ${patient.recovery_days}`)] }),
+            new Paragraph({ text: "" }), // spacing
+
+            // Left column info
+            new Paragraph({ children: [new TextRun(`Datëlindja: ${patient.birth_date || "Pa të dhëna"}`)] }),
+            new Paragraph({ children: [new TextRun(`Data Vizitës: ${patient.visit_date || "Pa të dhëna"}`)] }),
+            new Paragraph({ children: [new TextRun(`Ditët e rikuperimit: ${patient.recovery_days ?? "Pa të dhëna"}`)] }),
+
+            // Right column info
             new Paragraph({ children: [new TextRun(`Simptoma: ${patient.symptoms || "Pa të dhëna"}`)] }),
-            new Paragraph({ children: [new TextRun(`Receta: ${patient.prescription || "Nuk ka receta"}`)] }),
-          ].filter(Boolean) as Paragraph[],
+            new Paragraph({ children: [new TextRun(`Receta: ${patient.prescription || "Pa të dhëna"}`)] }),
+          ],
         },
       ],
     });
@@ -42,18 +51,12 @@ export default function PatientDetail({ patient, onBack, onAddReport }: Props) {
           <h1 className="text-3xl font-semibold text-gray-900">Pacienti</h1>
           <p className="text-gray-500 text-sm mt-1">Detajet e plotë të vizitës së pacientit</p>
         </div>
-        <div className="flex gap-2">
+        <div>
           <button
             onClick={onBack}
             className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
           >
             Kthehu
-          </button>
-          <button
-            onClick={() => onAddReport(patient)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition"
-          >
-            Shto Raport
           </button>
         </div>
       </header>
@@ -72,25 +75,15 @@ export default function PatientDetail({ patient, onBack, onAddReport }: Props) {
           {/* Left Column */}
           <div className="space-y-4">
             <h2 className="text-2xl font-bold text-gray-800">{patient.first_name} {patient.last_name}</h2>
-            <p className="text-gray-700">
-              <span className="font-medium">Datëlindja:</span> {patient.birth_date}
-            </p>
-            <p className="text-gray-700">
-              <span className="font-medium">Data Vizitës:</span> {patient.visit_date}
-            </p>
-            {patient.recovery_days && (
-              <p className="text-green-700 font-medium">Rikuperimi: {patient.recovery_days} ditë</p>
-            )}
+            <p className="text-gray-700"><span className="font-medium">Datëlindja:</span> {patient.birth_date || "Pa të dhëna"}</p>
+            <p className="text-gray-700"><span className="font-medium">Data Vizitës:</span> {patient.visit_date || "Pa të dhëna"}</p>
+            <p className="text-green-700 font-medium">Rikuperimi: {patient.recovery_days ?? "Pa të dhëna"} ditë</p>
           </div>
 
           {/* Right Column */}
           <div className="space-y-4">
-            <p className="text-gray-700">
-              <span className="font-medium">Simptoma:</span> {patient.symptoms || "Pa të dhëna"}
-            </p>
-            <p className="text-gray-700">
-              <span className="font-medium">Receta:</span> {patient.prescription || "Nuk ka receta"}
-            </p>
+            <p className="text-gray-700"><span className="font-medium">Simptoma:</span> {patient.symptoms || "Pa të dhëna"}</p>
+            <p className="text-gray-700"><span className="font-medium">Receta:</span> {patient.prescription || "Pa të dhëna"}</p>
           </div>
         </div>
 
@@ -100,7 +93,7 @@ export default function PatientDetail({ patient, onBack, onAddReport }: Props) {
             className="px-6 py-3 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition font-medium"
             onClick={handleDownloadWord}
           >
-            Download Raport Word
+            Shkarko Raport Word
           </button>
         </div>
       </main>

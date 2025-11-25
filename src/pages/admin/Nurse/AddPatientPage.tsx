@@ -11,6 +11,7 @@ export interface Patient {
   birth_date: string;
   symptoms?: string;
   recovery_days?: number;
+  prescription?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -28,10 +29,10 @@ const AddPatientPage: React.FC<AddPatientPageProps> = ({ onBack, onLogout, onPat
     birth_date: null as Date | null,
     symptoms: "",
     recovery_days: "",
+    prescription: "",
   });
 
   const [loading, setLoading] = useState(false);
-
   const token = localStorage.getItem("token");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,7 +56,8 @@ const AddPatientPage: React.FC<AddPatientPageProps> = ({ onBack, onLogout, onPat
         last_name: form.last_name,
         birth_date: form.birth_date.toISOString().split("T")[0],
         symptoms: form.symptoms || "",
-        recovery_days: form.recovery_days ? Number(form.recovery_days) : undefined,
+        recovery_days: form.recovery_days ? Number(form.recovery_days) : null,
+        prescription: form.prescription || "",
       };
 
       const response = await fetch("http://127.0.0.1:8000/api/nurse/patients", {
@@ -69,13 +71,34 @@ const AddPatientPage: React.FC<AddPatientPageProps> = ({ onBack, onLogout, onPat
 
       if (!response.ok) throw new Error(`Server responded with ${response.status}`);
 
-      const savedPatient: Patient = await response.json();
+      const data = await response.json();
+      const savedPatient: Patient = {
+        id: data.patient.id,
+        first_name: data.patient.first_name,
+        last_name: data.patient.last_name,
+        birth_date: data.patient.birth_date,
+        symptoms: data.patient.symptoms || "",
+        recovery_days: data.patient.recovery_days ?? null,
+        prescription: data.patient.prescription || "",
+        created_at: data.patient.created_at,
+        updated_at: data.patient.updated_at,
+      };
 
+      // ✅ Immediately update parent
       if (onPatientAdded) onPatientAdded(savedPatient);
 
-      alert("Pacienti u shtua me sukses!");
-      setForm({ first_name: "", last_name: "", birth_date: null, symptoms: "", recovery_days: "" });
+      // Reset form
+      setForm({
+        first_name: "",
+        last_name: "",
+        birth_date: null,
+        symptoms: "",
+        recovery_days: "",
+        prescription: "",
+      });
+
       onBack();
+      alert("Pacienti u shtua me sukses!");
     } catch (err) {
       console.error(err);
       alert("Diçka shkoi gabim gjatë ruajtjes së pacientit.");
@@ -170,11 +193,21 @@ const AddPatientPage: React.FC<AddPatientPageProps> = ({ onBack, onLogout, onPat
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Receta (Udhëzim)</label>
+            <textarea
+              value={form.prescription}
+              onChange={(e) => setForm({ ...form, prescription: e.target.value })}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:outline-none resize-none"
+              rows={3}
+              placeholder="Shto recetën e pacientit"
+            />
+          </div>
+
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-3 rounded-xl bg-green-600 text-white text-lg font-semibold hover:bg-green-700 transition ${loading ? "opacity-50 cursor-not-allowed" : ""
-              }`}
+            className={`w-full py-3 rounded-xl bg-green-600 text-white text-lg font-semibold hover:bg-green-700 transition ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             {loading ? "Duke ruajtur..." : "Shto Pacientin"}
           </button>

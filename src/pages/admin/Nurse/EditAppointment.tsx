@@ -13,18 +13,41 @@ export default function EditAppointment({ appointment, onBack, onSave }: Props) 
   const [type, setType] = useState<AppointmentType>(appointment.type);
   const [loading, setLoading] = useState(false);
 
+  const token = localStorage.getItem("token"); // logged-in token
+
   const handleSave = async () => {
-    const updatedAppointment = { id: appointment.id, name, date, type };
+    if (!token) {
+      alert("Ju nuk jeni i kyçur. Rifreskoni faqen dhe logohuni.");
+      return;
+    }
+
+    const updatedAppointment = {
+      name,
+      date,
+      type,
+      patient_email: appointment.patient_email ?? null, // send null if email is missing
+    };
 
     try {
       setLoading(true);
-      const res = await fetch(`/api/appointments/${appointment.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedAppointment),
-      });
 
-      if (!res.ok) throw new Error("Failed to update appointment");
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/nurse/appointments/${appointment.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(updatedAppointment),
+        }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        console.error(errData);
+        throw new Error(`Gabim: ${res.status}`);
+      }
 
       const data: Appointment = await res.json();
 
@@ -32,7 +55,7 @@ export default function EditAppointment({ appointment, onBack, onSave }: Props) 
       onBack();
     } catch (err) {
       console.error(err);
-      alert("Diçka shkoi gabim gjatë ruajtjes së ndryshimeve.");
+      alert("Gabim gjatë ruajtjes së terminës.");
     } finally {
       setLoading(false);
     }
