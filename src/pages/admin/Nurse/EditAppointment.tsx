@@ -8,8 +8,8 @@ type Props = {
 };
 
 export default function EditAppointment({ appointment, onBack, onSave }: Props) {
-  const [name, setName] = useState(appointment.name);
-  const [date, setDate] = useState(appointment.date);
+  const [patientName, setPatientName] = useState(appointment.patient_name);
+  const [appointmentDate, setAppointmentDate] = useState(appointment.appointment_date);
   const [type, setType] = useState<AppointmentType>(appointment.type);
   const [loading, setLoading] = useState(false);
 
@@ -22,10 +22,10 @@ export default function EditAppointment({ appointment, onBack, onSave }: Props) 
     }
 
     const updatedAppointment = {
-      name,
-      date,
+      patient_name: patientName,
+      appointment_date: appointmentDate,
       type,
-      patient_email: appointment.patient_email ?? null, // send null if email is missing
+      patient_email: appointment.patient_email ?? null,
     };
 
     try {
@@ -70,8 +70,8 @@ export default function EditAppointment({ appointment, onBack, onSave }: Props) 
           <label className="block text-gray-700 mb-1">Emri Pacientit:</label>
           <input
             type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={patientName}
+            onChange={(e) => setPatientName(e.target.value)}
             className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:outline-none"
           />
         </div>
@@ -80,8 +80,8 @@ export default function EditAppointment({ appointment, onBack, onSave }: Props) 
           <label className="block text-gray-700 mb-1">Data:</label>
           <input
             type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
+            value={appointmentDate}
+            onChange={(e) => setAppointmentDate(e.target.value)}
             className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:outline-none"
           />
         </div>

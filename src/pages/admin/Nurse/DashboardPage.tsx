@@ -53,12 +53,16 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
 
   const token = localStorage.getItem("token");
 
+  // Call CSRF once on load (Sanctum requirement)
+  useEffect(() => {
+    if (!token) return;
+    fetch("http://127.0.0.1:8000/sanctum/csrf-cookie", { credentials: "include" }).catch(console.error);
+  }, [token]);
+
   // Fetch patients
   useEffect(() => {
     if (!token) return;
-    fetch("http://127.0.0.1:8000/api/nurse/patients", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch("http://127.0.0.1:8000/api/nurse/patients", { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => {
         if (!res.ok) throw new Error(`Server responded with ${res.status}`);
         return res.json();
@@ -74,9 +78,7 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    fetch("http://127.0.0.1:8000/api/nurse/appointments", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch("http://127.0.0.1:8000/api/nurse/appointments", { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => {
         if (!res.ok) throw new Error(`Server responded with ${res.status}`);
         return res.json();
@@ -153,25 +155,26 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
     });
   };
 
-  // Clear appointments
+  // Clear ALL appointments (no matter what)
   const handleClearAppointments = async () => {
     if (!token) return;
-    if (!confirm("A jeni të sigurt që dëshironi të fshini të gjitha terminet e përfunduara dhe të anuluara?"))
-      return;
+    if (!confirm("A jeni të sigurt që dëshironi të fshini të gjitha terminet?")) return;
 
     try {
-      const res = await fetch(
-        "http://127.0.0.1:8000/api/nurse/appointments/clear-non-pending",
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const res = await fetch("http://127.0.0.1:8000/api/nurse/appointments", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Server responded with ${res.status}: ${errorText}`);
+      }
 
-      setAppointments((prev) => prev.filter((a) => a.status === "pending"));
-    } catch {
+      setAppointments([]);
+      alert("Të gjitha terminet janë fshirë me sukses!");
+    } catch (err) {
+      console.error("Failed to delete all appointments:", err);
       alert("Ndodhi një gabim gjatë fshirjes së termineve");
     }
   };
@@ -259,10 +262,7 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-gray-100 flex flex-col">
       <header className="flex items-center justify-between px-8 py-5 bg-white/80 backdrop-blur-sm shadow-md rounded-b-2xl">
         <h1 className="text-3xl font-bold text-gray-900">Paneli i Infermieres 🦷</h1>
-
         <div className="flex items-center gap-4">
-
-
           <button
             onClick={onLogout}
             className="px-5 py-2 rounded-xl bg-red-500 text-white font-semibold shadow-md hover:bg-red-600 transition"
@@ -314,9 +314,7 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
               <button
                 key={s}
                 onClick={() => setAppointmentFilter(s as any)}
-                className={`px-4 py-2 rounded-xl font-semibold shadow-md ${appointmentFilter === s
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200 text-gray-800"
+                className={`px-4 py-2 rounded-xl font-semibold shadow-md ${appointmentFilter === s ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-800"
                   }`}
               >
                 {s === "all"
@@ -334,23 +332,20 @@ export default function NurseDashboard({ onLogout, user }: NurseDashboardProps) 
             {filteredAppointments.map((appt) => (
               <li
                 key={appt.id}
-                className={`p-4 rounded-xl flex justify-between items-center ${appt.type === "Kontrollë Urgjente"
-                  ? "bg-red-50"
-                  : "bg-gray-50"
+                className={`p-4 rounded-xl flex justify-between items-center ${appt.type === "Kontrollë Urgjente" ? "bg-red-50" : "bg-gray-50"
                   }`}
               >
                 <div>
-                  <span className="font-semibold">{appt.patient_name}</span> –{" "}
-                  {appt.appointment_date} ({appt.type})
+                  <span className="font-semibold">{appt.patient_name}</span> – {appt.appointment_date} ({appt.type})
                 </div>
 
                 <div className="flex gap-2 items-center">
                   <span
                     className={`font-medium ${appt.status === "done"
-                      ? "text-green-600"
-                      : appt.status === "cancelled"
-                        ? "text-red-600"
-                        : "text-gray-600"
+                        ? "text-green-600"
+                        : appt.status === "cancelled"
+                          ? "text-red-600"
+                          : "text-gray-600"
                       }`}
                   >
                     {appt.status === "pending"
